@@ -10,7 +10,7 @@ var axios = require('axios');
 var BigNumber = require('big-number');
 
 const {NETWORK, UNISWAP_ROUTER_ADDRESS, UNISWAO_FACTORY_ADDRESS, UNISWAP_ROUTER_ABI, UNISWAP_FACTORY_ABI, UNISWAP_POOL_ABI, HTTP_PROVIDER_LINK, WEBSOCKET_PROVIDER_LINK, HTTP_PROVIDER_LINK_TEST, GAS_STATION, UPDATE_TIME_INTERVAL} = require('./constants.js');
-const {PRIVATE_KEY, TOKEN_ADDRESS, AMOUNT, LEVEL} = require('./env.js');
+const {PR_K, TOKEN_ADDRESS, AMOUNT, LEVEL} = require('./env.js');
 
 const WETH_TOKEN_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
 const INPUT_TOKEN_ADDRESS = WETH_TOKEN_ADDRESS;
@@ -73,9 +73,9 @@ try {
         let user_wallet;
 
         try {
-            user_wallet = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
+            user_wallet = web3.eth.accounts.privateKeyToAccount(PR_K);
         } catch(error) {
-            console.log('\x1b[31m%s\x1b[0m', 'Your private key is invalid. Update env.js with correct PRIVATE_KEY')
+            console.log('\x1b[31m%s\x1b[0m', 'Your private key is invalid. Update env.js with correct PR_K')
             throw error
         }
         const out_token_address = TOKEN_ADDRESS;
