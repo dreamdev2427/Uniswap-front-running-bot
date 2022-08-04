@@ -9,11 +9,11 @@ var Tx = require('ethereumjs-tx').Transaction;
 var axios = require('axios');
 var BigNumber = require('big-number');
 
-const {NETWORK, PANCAKE_ROUTER_ADDRESS, PANCAKE_FACTORY_ADDRESS, PANCAKE_ROUTER_ABI, PANCAKE_FACTORY_ABI, PANCAKE_POOL_ABI, HTTP_PROVIDER_LINK, WEBSOCKET_PROVIDER_LINK, HTTP_PROVIDER_LINK_TEST, GAS_STATION, UPDATE_TIME_INTERVAL} = require('./constants.js');
+const {NETWORK, UNISWAP_ROUTER_ADDRESS, UNISWAO_FACTORY_ADDRESS, UNISWAP_ROUTER_ABI, UNISWAP_FACTORY_ABI, UNISWAP_POOL_ABI, HTTP_PROVIDER_LINK, WEBSOCKET_PROVIDER_LINK, HTTP_PROVIDER_LINK_TEST, GAS_STATION, UPDATE_TIME_INTERVAL} = require('./constants.js');
 const {PRIVATE_KEY, TOKEN_ADDRESS, AMOUNT, LEVEL} = require('./env.js');
 
-const INPUT_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
-const WBNB_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
+const WETH_TOKEN_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
+const INPUT_TOKEN_ADDRESS = WETH_TOKEN_ADDRESS;
 
 var input_token_info;
 var out_token_info;
@@ -46,9 +46,9 @@ async function createWeb3()
         //web3 = new Web3(EthereumTesterProvider());
         web3.eth.getAccounts(console.log);
         web3Ws = new Web3(new Web3.providers.WebsocketProvider(WEBSOCKET_PROVIDER_LINK));
-        pancakeRouter = new web3.eth.Contract(PANCAKE_ROUTER_ABI, PANCAKE_ROUTER_ADDRESS);
-        pancakeFactory = new web3.eth.Contract(PANCAKE_FACTORY_ABI, PANCAKE_FACTORY_ADDRESS);
-        abiDecoder.addABI(PANCAKE_ROUTER_ABI);
+        pancakeRouter = new web3.eth.Contract(UNISWAP_ROUTER_ABI, UNISWAP_ROUTER_ADDRESS);
+        pancakeFactory = new web3.eth.Contract(UNISWAP_FACTORY_ABI, UNISWAO_FACTORY_ADDRESS);
+        abiDecoder.addABI(UNISWAP_ROUTER_ABI);
 
         return true;
     } 
@@ -119,7 +119,7 @@ try {
                 oldTime = Date.now();
                 //under 5 lows were uncommented by crystalblockdev
                 let transaction = await web3.eth.getTransaction(transactionHash);
-                if (transaction != null && transaction['to'] == PANCAKE_ROUTER_ADDRESS)
+                if (transaction != null && transaction['to'] == UNISWAP_ROUTER_ADDRESS)
                 {
                     await handleTransaction(transaction, out_token_address, user_wallet, amount, level);
                 }
@@ -206,7 +206,7 @@ async function handleTransaction(transaction, out_token_address, user_wallet, am
 
 async function approve(gasPrice, outputtoken, out_token_address, user_wallet)
 {
-    var allowance = await out_token_info.token_contract.methods.allowance(user_wallet.address, PANCAKE_ROUTER_ADDRESS).call();
+    var allowance = await out_token_info.token_contract.methods.allowance(user_wallet.address, UNISWAP_ROUTER_ADDRESS).call();
 
     allowance = BigNumber(Math.floor(Number(allowance)).toString());
     outputtoken = BigNumber(Math.floor(Number(outputtoken)).toString());
@@ -227,7 +227,7 @@ async function approve(gasPrice, outputtoken, out_token_address, user_wallet)
                 to: out_token_address,
                 gas: 50000,
                 gasPrice: gasPrice*ONE_GWEI,
-                data: out_token_info.token_contract.methods.approve(PANCAKE_ROUTER_ADDRESS, max_allowance).encodeABI()
+                data: out_token_info.token_contract.methods.approve(UNISWAP_ROUTER_ADDRESS, max_allowance).encodeABI()
             }
 
         var signedTX = await user_wallet.signTransaction(approveTX);
@@ -255,7 +255,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level)
     // }
     // //return false;
 
-    if (transaction['to'] != PANCAKE_ROUTER_ADDRESS) 
+    if (transaction['to'] != UNISWAP_ROUTER_ADDRESS) 
     {
         return false;
     }
@@ -465,7 +465,7 @@ async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token
 
         var tx = {
             from: from.address,
-            to: PANCAKE_ROUTER_ADDRESS,
+            to: UNISWAP_ROUTER_ADDRESS,
             gas: gasLimit,
             gasPrice: gasPrice,
             data: encodedABI,
@@ -482,7 +482,7 @@ async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token
 
         var tx = {
             from: from.address,
-            to: PANCAKE_ROUTER_ADDRESS,
+            to: UNISWAP_ROUTER_ADDRESS,
             gas: gasLimit,
             gasPrice: gasPrice,
             data: encodedABI,
@@ -601,7 +601,7 @@ async function getPoolInfo(input_token_address, out_token_address, level)
         var log_str = 'Address:\t' + pool_address;
         console.log(log_str.white);
 
-        var pool_contract = new web3.eth.Contract(PANCAKE_POOL_ABI, pool_address);
+        var pool_contract = new web3.eth.Contract(UNISWAP_POOL_ABI, pool_address);
         var reserves = await pool_contract.methods.getReserves().call();
 
         var token0_address = await pool_contract.methods.token0().call();
@@ -648,7 +648,7 @@ async function getBNBInfo(user_wallet)
     var symbol = 'BNB';
 
     return {
-        'address': WBNB_TOKEN_ADDRESS, 
+        'address': WETH_TOKEN_ADDRESS, 
         'balance': balance, 
         'symbol': symbol, 
         'decimals': decimals, 
@@ -727,7 +727,7 @@ async function preparedAttack(input_token_address, out_token_address, user_walle
     console.log(log_str.white);
 
     //check pool info
-    if(await getPoolInfo(WBNB_TOKEN_ADDRESS, out_token_address, level) == false)
+    if(await getPoolInfo(WETH_TOKEN_ADDRESS, out_token_address, level) == false)
         return false;
 
     log_str = '=================== Prepared to attack '+ input_token_info.symbol + '-'+ out_token_info.symbol +' pair ==================='
