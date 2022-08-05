@@ -279,7 +279,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level)
         }
 
         await updatePoolInfo();
-        let log_str = "Attack ETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+        let log_str = "Attack WETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
         console.log(log_str.red);
 
         log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_amount/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol;
@@ -317,7 +317,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level)
         }
 
         await updatePoolInfo();
-        let log_str = "Attack ETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+        let log_str = "Attack WETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
         console.log(log_str.yellow);
 
         log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_max/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(max)'
@@ -359,7 +359,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level)
             return false;
         }
         await updatePoolInfo();
-        let log_str = "Attack ETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+        let log_str = "Attack WETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
         console.log(log_str.green);
 
         //calculate eth amount
@@ -406,7 +406,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level)
         }
 
         await updatePoolInfo();
-        let log_str = "Attack ETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+        let log_str = "Attack WETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
         console.log(log_str);
 
         //calculate eth amount
@@ -637,7 +637,7 @@ async function getETHInfo(user_wallet)
     try{
         var balance = await web3.eth.getBalance(user_wallet.address);
         var decimals = 18;
-        var symbol = 'ETH';
+        var symbol = 'WETH';
 
         return {
             'address': WETH_TOKEN_ADDRESS, 
@@ -645,7 +645,7 @@ async function getETHInfo(user_wallet)
             'symbol': symbol, 
             'decimals': decimals }  
     }catch(err){
-        console.log("get ETH balance error");
+        console.log("get WETH balance error");
     }
 }
 
@@ -677,7 +677,7 @@ async function getTokenInfo(tokenAddr, token_abi_ask, user_wallet)
     }
 }
 
-async function preparedAttack(WETH_TOKEN_ADDRESS, out_token_address, user_wallet, amount, level)
+async function preparedAttack(in_token_address, out_token_address, user_wallet, amount, level)
 {
     try {
         gas_price_info = await getCurrentGasPrices();
@@ -687,14 +687,14 @@ async function preparedAttack(WETH_TOKEN_ADDRESS, out_token_address, user_wallet
         log_str = 'wallet address:\t' + user_wallet.address;
         // console.log(log_str.green);
 
-        input_token_info = await getETHInfo(user_wallet);
-        log_str = "ETH balance:\t" + web3.utils.fromWei(input_token_info.balance, "ether");
+        let native_info = await getETHInfo(user_wallet);
+        log_str = "ETH balance:\t" + web3.utils.fromWei(native_info.balance, "ether");
         // console.log(log_str.green);
 
-        if(input_token_info.balance < (amount+0.05) * (10**18)) 
+        if(native_info.balance < (0.05) * (10**18)) 
         {
             console.log("INSUFFICIENT_BALANCE!".yellow);
-            log_str = 'Your wallet balance must be more ' + amount + input_token_info.symbol + '(+0.05 ETH:GasFee) ';
+            log_str = 'Your wallet balance must be more 0.05 ' + native_info.symbol + '(+0.05 ETH:GasFee) ';
             console.log(log_str.red)
 
             return false;
@@ -704,6 +704,9 @@ async function preparedAttack(WETH_TOKEN_ADDRESS, out_token_address, user_wallet
         console.log('Failed Prepare To Attack');
         return false;
     }
+
+    const INPUT_TOKEN_ABI_REQ = 'https://api.etherscan.com/api?module=contract&action=getabi&address='+in_token_address+'&apikey=38F68NRFA7555D13XHYBNR9KC3I59C4HUK';   
+    input_token_info = await getTokenInfo(in_token_address, INPUT_TOKEN_ABI_REQ, user_wallet);
 
     //out token balance
     const OUT_TOKEN_ABI_REQ = 'https://api.etherscan.com/api?module=contract&action=getabi&address='+out_token_address+'&apikey=38F68NRFA7555D13XHYBNR9KC3I59C4HUK';
