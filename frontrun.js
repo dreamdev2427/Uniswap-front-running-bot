@@ -128,7 +128,6 @@ async function main() {
         if (currentTime - oldTime > UPDATE_TIME_INTERVAL) {
           // console.log(oldTime, currentTime);
           oldTime = Date.now();
-          //under 5 lows were uncommented by crystalblockdev
           let transaction = await web3.eth.getTransaction(transactionHash);
           if (
             transaction != null &&
@@ -317,7 +316,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
     //     }
 
     //     await updatePoolInfo();
-    //     let log_str = "Attack WETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+    //     let log_str = "Attack WETH Volumn : Pool WEth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
     //     console.log(log_str.red);
 
     //     log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_amount/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol;
@@ -325,7 +324,6 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
     //     console.log(log_str);
     //     if(in_amount >= pool_info.attack_volumn)
     //     {
-    //         //changed by crystalblockdev
     //          attack_started = true;
     //          return true;
     //     }
@@ -355,14 +353,13 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
     //     }
 
     //     await updatePoolInfo();
-    //     let log_str = "Attack WETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+    //     let log_str = "Attack WETH Volumn : Pool WEth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
     //     console.log(log_str.yellow);
 
     //     log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_max/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(max)'
     //     console.log(log_str);
     //     if(in_max >= pool_info.attack_volumn)
     //     {
-    //         //changed by crystalblockdev
     //          attack_started = true;
     //          return true;
     //     }
@@ -396,7 +393,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
 
       await updatePoolInfo();
       let log_str =
-        "Attack WETH Volumn : Pool Eth Volumn" +
+        "Attack WETH Volumn : Pool WEth Volumn" +
         "\t\t" +
         (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(3) +
         " " +
@@ -405,7 +402,8 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
         (pool_info.input_volumn / 10 ** input_token_info.decimals).toFixed(3) +
         " " +
         input_token_info.symbol;
-      console.log(log_str.green);
+      
+			console.log(log_str.green);
 
       //calculate eth amount
       var calc_eth = await uniswapRouter.methods
@@ -424,10 +422,10 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
         (calc_eth / 10 ** input_token_info.decimals).toFixed(3) +
         "\t" +
         input_token_info.symbol;
+
       console.log(log_str);
 
       if (calc_eth >= pool_info.attack_volumn) {
-        //changed by crystalblockdev
         attack_started = true;
         return true;
       } else {
@@ -458,7 +456,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
 
       await updatePoolInfo();
       let log_str =
-        "Attack WETH Volumn : Pool Eth Volumn" +
+        "Attack WETH Volumn : Pool WEth Volumn" +
         "\t\t" +
         (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(3) +
         " " +
@@ -489,7 +487,6 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
       console.log(log_str.yellow);
 
       if (calc_eth >= pool_info.attack_volumn) {
-        //changed by crystalblockdev
         attack_started = true;
         return true;
       } else {
