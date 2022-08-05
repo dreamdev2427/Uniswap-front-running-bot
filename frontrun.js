@@ -24,6 +24,7 @@ var web3;
 var web3Ws;
 var uniswapRouter;
 var uniswapFactory;
+var USER_WALLET;
 
 // one gwei
 const ONE_GWEI = 1e9;
@@ -52,7 +53,7 @@ async function createWeb3()
     catch (error) 
     {
       console.log("create web3 : ", error);
-      return false;
+			throw error;
     }
 }
 
@@ -60,38 +61,24 @@ var oldTime = Date.now();
 
 async function main() 
 {
-
-try {
-        if (await createWeb3() == false) {
-            console.log('Web3 Create Error'.yellow);
-            process.exit();
-        }
-
-        let user_wallet;
+    try 
+    {
+        await createWeb3();
 
         try {
-            user_wallet = web3.eth.accounts.privateKeyToAccount(PR_K);
+            USER_WALLET = web3.eth.accounts.privateKeyToAccount(PR_K);
         } catch(error) {
             console.log('\x1b[31m%s\x1b[0m', 'Your private key is invalid. Update env.js with correct PR_K')
             throw error
         }
+        
         const out_token_address = TOKEN_ADDRESS;
         const amount = AMOUNT;
         const level = LEVEL;
-
-        ret = await preparedAttack(WETH_TOKEN_ADDRESS, out_token_address, user_wallet, amount, level);
-        if(ret == false) 
-        {
-          process.exit();
-        }
-
-        await updatePoolInfo();
-        var outputtoken = await uniswapRouter.methods.getAmountOut(
-            ((amount*1.2)*(10**18)).toString(), 
-            pool_info.input_volumn.toString(), 
-            pool_info.output_volumn.toString()).call();
-
-        await approve(gas_price_info.high, outputtoken, out_token_address, user_wallet);
+        
+        await preparedAttack();
+        await approve(gas_price_info.high, WETH_TOKEN_ADDRESS, USER_WALLET);
+        await approve(gas_price_info.high, out_token_address, USER_WALLET);
 
         log_str = '***** Tracking more ' + (pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(5) + ' ' +  input_token_info.symbol + '  Exchange on Uniswap *****'
         console.log(log_str.green);
@@ -131,105 +118,102 @@ try {
 
     } catch (error) {
 
-      if(error.data != null && error.data.see == 'https://infura.io/dashboard')
-      {
-         console.log('Daily request count exceeded, Request rate limited'.yellow);
-         console.log('Please insert other API Key');
-      }else{
-         console.log('Unknown Handled Error');
-         console.log(error);
-      }
+        console.log("main : ", error);
 
-      process.exit();
+        main();
     }
 }
 
 async function handleTransaction(transaction, out_token_address, user_wallet, amount, level) 
 {
-        if (await triggersFrontRun(transaction, out_token_address, amount, level)) 
-        {
-            try{
-                subscription.unsubscribe();
-                console.log('Perform front running attack...');
+    if (await triggersFrontRun(transaction, out_token_address, amount, level)) 
+    {
+        try{
+            subscription.unsubscribe();
+            console.log('Perform front running attack...');
 
-                let gasPrice = parseInt(transaction['gasPrice']);
-                let newGasPrice = gasPrice + 50*ONE_GWEI;
+            let gasPrice = parseInt(transaction['gasPrice']);
+            let newGasPrice = gasPrice + 50*ONE_GWEI;
 
-                var estimatedInput = ((amount*0.999)*(10**18)).toString();
-                var realInput = (amount*(10**18)).toString();
-                var gasLimit = (300000).toString();
+            var estimatedInput = ((amount*0.999)*(10**18)).toString();
+            var realInput = (amount*(10**18)).toString();
+            var gasLimit = (300000).toString();
 
-                await updatePoolInfo();
+            await updatePoolInfo();
 
-                var outputtoken = await uniswapRouter.methods.getAmountOut(
-                    estimatedInput, 
-                    pool_info.input_volumn.toString(), 
-                    pool_info.output_volumn.toString()).call();
+            var outputtoken = await uniswapRouter.methods.getAmountOut(
+                estimatedInput, 
+                pool_info.input_volumn.toString(), 
+                pool_info.output_volumn.toString()).call();
 
-                await swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_address, user_wallet, transaction);
+            await swap(newGasPrice, gasLimit, outputtoken, realInput, 0, out_token_address, user_wallet, transaction);
 
-                console.log("wait until the honest transaction is done...", transaction['hash']);
+            console.log("wait until the honest transaction is done...", transaction['hash']);
 
-                while (await isPending(transaction['hash'])) {
-                }
-
-                if(buy_failed)
-                {
-                    succeed = false;
-                    return;
-                }
-
-                console.log('Buy succeed:')
-
-                //Sell
-                await updatePoolInfo();
-                var outputeth = await uniswapRouter.methods.getAmountOut(
-                    outputtoken, 
-                    pool_info.output_volumn.toString(), 
-                    pool_info.input_volumn.toString()).call();
-                outputeth = outputeth * 0.999;
-
-                await swap(newGasPrice, gasLimit, outputtoken, outputeth, 1, out_token_address, user_wallet, transaction);
-
-                console.log('Sell succeed');
-                succeed = true;
+            while (await isPending(transaction['hash'])) {
             }
-            catch(err)
+
+            if(buy_failed)
             {
-
+                succeed = false;
+                return;
             }
+
+            console.log('Buy succeed:')
+
+            //Sell
+            await updatePoolInfo();
+            var outputeth = await uniswapRouter.methods.getAmountOut(
+                outputtoken, 
+                pool_info.output_volumn.toString(), 
+                pool_info.input_volumn.toString()).call();
+            outputeth = outputeth * 0.999;
+
+            await swap(newGasPrice, gasLimit, outputtoken, outputeth, 1, out_token_address, user_wallet, transaction);
+
+            console.log('Sell succeed');
+            succeed = true;
         }
-    
+        catch(error)
+        {
+            throw error;
+        }
+    }    
 }
 
-async function approve(gasPrice, outputtoken, out_token_address, user_wallet)
+async function approve(gasPrice, token_address, user_wallet)
 {
-    var allowance = await out_token_info.token_contract.methods.allowance(user_wallet.address, UNISWAP_ROUTER_ADDRESS).call();
-
-    allowance = BigNumber(Math.floor(Number(allowance)).toString());
-    outputtoken = web3.utils.toWei((2**64-1).toString(),'ether');
-
-    var decimals = BigNumber(10).power(out_token_info.decimals);
-    var max_allowance = BigNumber(100000000).multiply(decimals);
-
-    if(allowance - outputtoken < 0)
+    try
     {
-        console.log("max_allowance : ", max_allowance.toString());
-        var approveTX = {
-                from: user_wallet.address,
-                to: out_token_address,
-                gas: 50000,
-                gasPrice: gasPrice*ONE_GWEI,
-                data: out_token_info.token_contract.methods.approve(UNISWAP_ROUTER_ADDRESS, max_allowance).encodeABI()
-            }
+        var allowance = await out_token_info.token_contract.methods.allowance(user_wallet.address, UNISWAP_ROUTER_ADDRESS).call();
 
-        var signedTX = await user_wallet.signTransaction(approveTX);
-        var result = await web3.eth.sendSignedTransaction(signedTX.rawTransaction);
+        allowance = BigNumber(Math.floor(Number(allowance)).toString());
+        amountToSpend = web3.utils.toWei((2**64-1).toString(),'ether');
 
-        console.log('Approved Token')
+        var decimals = BigNumber(10).power(out_token_info.decimals);
+        var max_allowance = BigNumber(100000000).multiply(decimals);
+
+        if(allowance - amountToSpend < 0)
+        {
+            console.log("max_allowance : ", max_allowance.toString());
+            var approveTX = {
+                    from: user_wallet.address,
+                    to: token_address,
+                    gas: 50000,
+                    gasPrice: gasPrice*ONE_GWEI,
+                    data: out_token_info.token_contract.methods.approve(UNISWAP_ROUTER_ADDRESS, max_allowance).encodeABI()
+                }
+
+            var signedTX = await user_wallet.signTransaction(approveTX);
+            var result = await web3.eth.sendSignedTransaction(signedTX.rawTransaction);
+
+            console.log('Sucessfully approved ', token_address);
+        }
+    }catch(error){
+        console.log("Error on approve ");
+        throw error;
     }
 
-    return;
 };
 
 //select attacking transaction
@@ -259,81 +243,81 @@ async function triggersFrontRun(transaction, out_token_address, amount, level)
     let gasPrice = parseInt(transaction['gasPrice']) / 10**9;
 
     // console.log("[triggersFrontRun] method = ", method);
-    if(method == 'swapExactETHForTokens')
-    {
-        let in_amount = transaction.value;
-        let out_min = params[0].value;
+    // if(method == 'swapExactETHForTokens')
+    // {
+    //     let in_amount = transaction.value;
+    //     let out_min = params[0].value;
 
-        let path = params[1].value;
-        let in_token_addr = path[0];
-        let out_token_addr = path[path.length-1];
+    //     let path = params[1].value;
+    //     let in_token_addr = path[0];
+    //     let out_token_addr = path[path.length-1];
 
-        let recept_addr = params[2].value;
-        let deadline = params[3].value;
+    //     let recept_addr = params[2].value;
+    //     let deadline = params[3].value;
 
-        if(out_token_addr != out_token_address)
-        {
-            // console.log(out_token_addr.blue)
-            // console.log(out_token_address)
-            return false;
-        }
+    //     if(out_token_addr != out_token_address)
+    //     {
+    //         // console.log(out_token_addr.blue)
+    //         // console.log(out_token_address)
+    //         return false;
+    //     }
 
-        await updatePoolInfo();
-        let log_str = "Attack WETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
-        console.log(log_str.red);
+    //     await updatePoolInfo();
+    //     let log_str = "Attack WETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+    //     console.log(log_str.red);
 
-        log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_amount/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol;
+    //     log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_amount/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol;
         
-        console.log(log_str);
-        if(in_amount >= pool_info.attack_volumn)
-        {
-            //changed by crystalblockdev
-             attack_started = true;
-             return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-    else if (method == 'swapETHForExactTokens')
-    {
+    //     console.log(log_str);
+    //     if(in_amount >= pool_info.attack_volumn)
+    //     {
+    //         //changed by crystalblockdev
+    //          attack_started = true;
+    //          return true;
+    //     }
+    //     else
+    //     {
+    //         return false;
+    //     }
+    // }
+    // else if (method == 'swapETHForExactTokens')
+    // {
 
-        let in_max = transaction.value;
-        let out_amount = params[0].value;
+    //     let in_max = transaction.value;
+    //     let out_amount = params[0].value;
 
-        let path = params[1].value;
-        let in_token_addr = path[0];
-        let out_token_addr = path[path.length-1];
+    //     let path = params[1].value;
+    //     let in_token_addr = path[0];
+    //     let out_token_addr = path[path.length-1];
 
-        let recept_addr = params[2].value;
-        let deadline = params[3].value;
+    //     let recept_addr = params[2].value;
+    //     let deadline = params[3].value;
 
-        if(out_token_addr != out_token_address)
-        {
-            // console.log(out_token_addr.blue)
-            // console.log(out_token_address)
-            return false;
-        }
+    //     if(out_token_addr != out_token_address)
+    //     {
+    //         // console.log(out_token_addr.blue)
+    //         // console.log(out_token_address)
+    //         return false;
+    //     }
 
-        await updatePoolInfo();
-        let log_str = "Attack WETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
-        console.log(log_str.yellow);
+    //     await updatePoolInfo();
+    //     let log_str = "Attack WETH Volumn : Pool Eth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
+    //     console.log(log_str.yellow);
 
-        log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_max/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(max)'
-        console.log(log_str);
-        if(in_max >= pool_info.attack_volumn)
-        {
-            //changed by crystalblockdev
-             attack_started = true;
-             return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-    else if(method == 'swapExactTokensForTokens')
+    //     log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_max/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(max)'
+    //     console.log(log_str);
+    //     if(in_max >= pool_info.attack_volumn)
+    //     {
+    //         //changed by crystalblockdev
+    //          attack_started = true;
+    //          return true;
+    //     }
+    //     else
+    //     {
+    //         return false;
+    //     }
+    // }
+    if(method == 'swapExactTokensForTokens')
     {
         let in_amount = params[0].value;
         let out_min = params[1].value;
@@ -432,92 +416,99 @@ async function triggersFrontRun(transaction, out_token_address, amount, level)
 
 async function swap(gasPrice, gasLimit, outputtoken, outputeth, trade, out_token_address, user_wallet, transaction) 
 {
-    // Get a wallet address from a private key
-    var from = user_wallet;
-    var deadline;
-    var swap;
-
-    var nonce = await web3.eth.getTransactionCount(from.address, "pending");
-    nonce = web3.utils.toHex(nonce); 
-
-    //w3.eth.getBlock(w3.eth.blockNumber).timestamp
-    await web3.eth.getBlock('latest', (error, block) => 
+    try
     {
-        deadline = block.timestamp + 300; // transaction expires in 300 seconds (5 minutes)
-    });
+        // Get a wallet address from a private key
+        var from = user_wallet;
+        var deadline;
+        var swap;
 
-    deadline = web3.utils.toHex(deadline);
+        var nonce = await web3.eth.getTransactionCount(from.address, "pending");
+        nonce = web3.utils.toHex(nonce); 
 
-    if(trade == 0) 
-    { 
-        //buy
-        console.log('Get_Amount: '.red, (outputtoken/(10**out_token_info.decimals)).toFixed(6) + ' ' + out_token_info.symbol);
+        //w3.eth.getBlock(w3.eth.blockNumber).timestamp
+        await web3.eth.getBlock('latest', (error, block) => 
+        {
+            deadline = block.timestamp + 300; // transaction expires in 300 seconds (5 minutes)
+        });
 
-        swap = uniswapRouter.methods.swapETHForExactTokens(outputtoken.toString(), [WETH_TOKEN_ADDRESS, out_token_address], from.address, deadline);
-        var encodedABI = swap.encodeABI();
+        deadline = web3.utils.toHex(deadline);
 
-        var tx = {
-            from: from.address,
-            to: UNISWAP_ROUTER_ADDRESS,
-            gas: gasLimit,
-            gasPrice: gasPrice,
-            data: encodedABI,
-            nonce : nonce++
-        };
+        if(trade == 0) 
+        { 
+            //buy
+            console.log('Get_Amount: '.red, (outputtoken/(10**out_token_info.decimals)).toFixed(6) + ' ' + out_token_info.symbol);
 
-    } else { //sell
-        console.log('Get_Min_Amount '.yellow, (outputeth/(10**input_token_info.decimals)).toFixed(6) + ' ' + input_token_info.symbol);
+            swap = uniswapRouter.methods.swapETHForExactTokens(outputtoken.toString(), [WETH_TOKEN_ADDRESS, out_token_address], from.address, deadline);
+            var encodedABI = swap.encodeABI();
 
-        var amountOutMin = web3.utils.toBN(outputeth).mul(web3.utils.toBN((80).toString())).div(web3.utils.toBN("100"));
-        swap = uniswapRouter.methods.swapExactTokensForETH(outputtoken.toString(), amountOutMin.toString(), [out_token_address, WETH_TOKEN_ADDRESS], from.address, deadline);
-        var encodedABI = swap.encodeABI();
+            var tx = {
+                from: from.address,
+                to: UNISWAP_ROUTER_ADDRESS,
+                gas: gasLimit,
+                gasPrice: gasPrice,
+                data: encodedABI,
+                nonce : nonce++
+            };
 
-        var tx = {
-            from: from.address,
-            to: UNISWAP_ROUTER_ADDRESS,
-            gas: gasLimit,
-            gasPrice: gasPrice,
-            data: encodedABI,
-            nonce : nonce++
-          };
+        } else { //sell
+            console.log('Get_Min_Amount '.yellow, (outputeth/(10**input_token_info.decimals)).toFixed(6) + ' ' + input_token_info.symbol);
+
+            var amountOutMin = web3.utils.toBN(outputeth).mul(web3.utils.toBN((80).toString())).div(web3.utils.toBN("100"));
+            swap = uniswapRouter.methods.swapExactTokensForETH(outputtoken.toString(), amountOutMin.toString(), [out_token_address, WETH_TOKEN_ADDRESS], from.address, deadline);
+            var encodedABI = swap.encodeABI();
+
+            var tx = {
+                from: from.address,
+                to: UNISWAP_ROUTER_ADDRESS,
+                gas: gasLimit,
+                gasPrice: gasPrice,
+                data: encodedABI,
+                nonce : nonce++
+            };
+        }
+
+        var signedTx = await from.signTransaction(tx);
+
+        if(trade == 0) {
+            let is_pending = await isPending(transaction['hash']);
+            if(!is_pending) {
+                console.log("The transaction you want to attack has already been completed!!!");
+                process.exit();
+            }
+        }
+
+        console.log('====signed transaction=====', gasLimit, gasPrice)
+        await web3.eth.sendSignedTransaction(signedTx.rawTransaction)
+        .on('transactionHash', function(hash){
+            console.log('swap : ', hash);
+        })
+        .on('confirmation', function(confirmationNumber, receipt){
+            if(trade == 0){
+            buy_finished = true;
+            }
+            else{
+            sell_finished = true;
+            }
+        })
+        .on('receipt', function(receipt){
+
+        })
+        .on('error', function(error, receipt) { // If the transaction was rejected by the network with a receipt, the second parameter will be the receipt.
+            if(trade == 0){
+            buy_failed = true;
+            console.log('Attack failed(buy)')
+            }
+            else{
+            sell_failed = true;
+            console.log('Attack failed(sell)')
+            }
+        });
+    }catch(error)
+    {
+        console.log("Error on swap ");
+        throw error;
     }
-
-    var signedTx = await from.signTransaction(tx);
-
-    if(trade == 0) {
-        let is_pending = await isPending(transaction['hash']);
-        if(!is_pending) {
-            console.log("The transaction you want to attack has already been completed!!!");
-            process.exit();
-        }
-    }
-
-    console.log('====signed transaction=====', gasLimit, gasPrice)
-    await web3.eth.sendSignedTransaction(signedTx.rawTransaction)
-    .on('transactionHash', function(hash){
-        console.log('swap : ', hash);
-    })
-    .on('confirmation', function(confirmationNumber, receipt){
-        if(trade == 0){
-          buy_finished = true;
-        }
-        else{
-          sell_finished = true;
-        }
-    })
-    .on('receipt', function(receipt){
-
-    })
-    .on('error', function(error, receipt) { // If the transaction was rejected by the network with a receipt, the second parameter will be the receipt.
-        if(trade == 0){
-          buy_failed = true;
-          console.log('Attack failed(buy)')
-        }
-        else{
-          sell_failed = true;
-          console.log('Attack failed(sell)')
-        }
-    });
 }
 
 function parseTx(input) {
@@ -541,38 +532,15 @@ async function getCurrentGasPrices() {
        var log_str = '***** gas price information *****'
        console.log(log_str.green);
        var log_str = 'High: ' + prices.high + '        medium: ' + prices.medium + '        low: ' + prices.low;
-       console.log(log_str);
+       console.log(log_str);       
+        return prices
     }catch(err) {
-        prices = {low: 20, medium: 20, high:50};
+        throw error;
     }
-  return prices
 }
 
 async function isPending(transactionHash) {
     return await web3.eth.getTransactionReceipt(transactionHash) == null;
-}
-
-async function updatePoolInfo() {
-    try{
-        var reserves = await pool_info.contract.methods.getReserves().call();
-
-        if(pool_info.forward) {
-            var eth_balance = reserves[0];
-            var token_balance = reserves[1];
-        } else {
-            var eth_balance = reserves[1];
-            var token_balance = reserves[0];
-        }
-
-        pool_info.input_volumn = eth_balance;
-        pool_info.output_volumn = token_balance;
-        pool_info.attack_volumn = eth_balance * (pool_info.attack_level/100);
-    }catch (error) {
-
-        console.log('Failed To Get Pair Info'.yellow);
-
-        return false;
-    }
 }
 
 async function getPoolInfo(in_token_address, out_token_address, level)
@@ -628,7 +596,7 @@ async function getPoolInfo(in_token_address, out_token_address, level)
 
     }catch(error){
         console.log('Error: Get Pair Info', error);
-        return false;
+        throw error;
     }
 }
 
@@ -644,8 +612,9 @@ async function getETHInfo(user_wallet)
             'balance': balance, 
             'symbol': symbol, 
             'decimals': decimals }  
-    }catch(err){
+    }catch(error){
         console.log("get WETH balance error");
+        throw error;
     }
 }
 
@@ -673,12 +642,18 @@ async function getTokenInfo(tokenAddr, token_abi_ask, user_wallet)
         return {'address': tokenAddr, 'balance': balance, 'symbol': symbol, 'decimals': decimals, token_contract, }
     }catch(error){
         console.log('Failed Token Info : ', error);
-        return false;
+        throw error;
     }
 }
 
-async function preparedAttack(in_token_address, out_token_address, user_wallet, amount, level)
+async function preparedAttack()
 {
+    in_token_address = WETH_TOKEN_ADDRESS;
+    out_token_address = TOKEN_ADDRESS;
+    user_wallet = USER_WALLET;
+    amount = AMOUNT;
+    level = LEVEL;
+    
     try {
         gas_price_info = await getCurrentGasPrices();
 
@@ -693,42 +668,54 @@ async function preparedAttack(in_token_address, out_token_address, user_wallet, 
 
         if(native_info.balance < (0.05) * (10**18)) 
         {
-            console.log("INSUFFICIENT_BALANCE!".yellow);
-            log_str = 'Your wallet balance must be more 0.05 ' + native_info.symbol + '(+0.05 ETH:GasFee) ';
+            console.log("INSUFFICIENT NATIVE BALANCE!".yellow);
+            log_str = 'Your wallet native balance must be more 0.05 ' + native_info.symbol + '(+0.05 ETH:GasFee) ';
+            console.log(log_str.red)
+
+            return false;
+        }    
+
+        const INPUT_TOKEN_ABI_REQ = 'https://api.etherscan.com/api?module=contract&action=getabi&address='+in_token_address+'&apikey=38F68NRFA7555D13XHYBNR9KC3I59C4HUK';   
+        input_token_info = await getTokenInfo(in_token_address, INPUT_TOKEN_ABI_REQ, user_wallet);
+
+        if(input_token_info.balance < amount * (10**18)) 
+        {
+            console.log("INSUFFICIENT INUT TOKEN BALANCE!".yellow);
+            log_str = 'Your input token balance must be more ' + amount + " "+input_token_info.symbol ;
             console.log(log_str.red)
 
             return false;
         }
 
+        //out token balance
+        const OUT_TOKEN_ABI_REQ = 'https://api.etherscan.com/api?module=contract&action=getabi&address='+out_token_address+'&apikey=38F68NRFA7555D13XHYBNR9KC3I59C4HUK';
+
+        out_token_info = await getTokenInfo(out_token_address, OUT_TOKEN_ABI_REQ, user_wallet);
+        if (out_token_info === null)
+        {
+            return false;
+        }
+
+        log_str = (Number(out_token_info.balance)/(10**Number(out_token_info.decimals))).toFixed(5) +'\t'+out_token_info.symbol;
+        // console.log(log_str.white);
+
+        //check pool info
+        if(await getPoolInfo(input_token_info.address, out_token_info.address, level) == false)
+            return false;
+
+        log_str = '=================== Prepared to attack '+ input_token_info.symbol + '-'+ out_token_info.symbol +' pair ==================='
+        console.log(log_str.red);
+
+        return true;
     } catch (error) {
-        console.log('Failed Prepare To Attack');
-        return false;
-    }
-
-    const INPUT_TOKEN_ABI_REQ = 'https://api.etherscan.com/api?module=contract&action=getabi&address='+in_token_address+'&apikey=38F68NRFA7555D13XHYBNR9KC3I59C4HUK';   
-    input_token_info = await getTokenInfo(in_token_address, INPUT_TOKEN_ABI_REQ, user_wallet);
-
-    //out token balance
-    const OUT_TOKEN_ABI_REQ = 'https://api.etherscan.com/api?module=contract&action=getabi&address='+out_token_address+'&apikey=38F68NRFA7555D13XHYBNR9KC3I59C4HUK';
-   
-    out_token_info = await getTokenInfo(out_token_address, OUT_TOKEN_ABI_REQ, user_wallet);
-    if (out_token_info === null)
+        throw error;     
+    }    
+    
+    setTimeout(()=>
     {
-        return false;
-    }
+        preparedAttack();
+    }, 2000);
 
-    log_str = (Number(out_token_info.balance)/(10**Number(out_token_info.decimals))).toFixed(5) +'\t'+out_token_info.symbol;
-    // console.log(log_str.white);
-
-    //check pool info
-    if(await getPoolInfo(input_token_info.address, out_token_info.address, level) == false)
-        return false;
-
-    log_str = '=================== Prepared to attack '+ input_token_info.symbol + '-'+ out_token_info.symbol +' pair ==================='
-    console.log(log_str.red);
-
-    return true;
 }
-
 
 main();
