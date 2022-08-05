@@ -804,12 +804,12 @@ async function preparedAttack() {
     var log_str = "***** Your Wallet Balance *****";
     // console.log(log_str.green);
     log_str = "wallet address:\t" + user_wallet.address;
-    // console.log(log_str.green);
+    console.log(log_str.green);
 
     let native_info = await getETHInfo(user_wallet);
     log_str =
       "ETH balance:\t" + web3.utils.fromWei(native_info.balance, "ether");
-    // console.log(log_str.green);
+    console.log(log_str.green);
 
     if (native_info.balance < 0.05 * 10 ** 18) {
       console.log("INSUFFICIENT NATIVE BALANCE!".yellow);

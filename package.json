@@ -11,10 +11,13 @@
   "license": "ISC",
   "dependencies": {
     "abi-decoder": "^2.4.0",
+    "api": "^4.5.2",
     "axios": "^0.26.0",
     "big-number": "^2.0.0",
     "colors": "^1.4.0",
     "ethereumjs-tx": "^2.1.2",
+    "request": "^2.88.2",
+    "tronweb": "^4.2.0",
     "web3": "^1.7.0"
   }
 }
