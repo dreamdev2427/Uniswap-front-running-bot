@@ -169,9 +169,9 @@ async function handleTransaction(
       let newGasPrice = gasPrice + 50 * ONE_GWEI;
 
       var realInput =
-        input_token_info.balance > amount * (10 * input_token_info.decimals)
-          ? (amount * (10 * input_token_info.decimals)).toString()
-          : (input_token_info.balance * 10 ** 18).toString();
+        input_token_info.balance > amount * (10 ** input_token_info.decimals)
+          ? (amount * (10 ** input_token_info.decimals)).toString()
+          : (input_token_info.balance * 10 ** input_token_info.decimals).toString();
       var gasLimit = (300000).toString();
 
       await updatePoolInfo();
