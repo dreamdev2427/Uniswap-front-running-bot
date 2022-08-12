@@ -218,6 +218,7 @@ async function handleTransaction(
 
       if (buy_failed) {
         succeed = false;
+        attack_started = false;
         return;
       }
 
@@ -247,8 +248,10 @@ async function handleTransaction(
 
       console.log("Sell succeed");
       succeed = true;
+      attack_started = false;
     }
   } catch (error) {
+    attack_started = false;
     throw error;
   }
 }
@@ -621,7 +624,7 @@ async function getPoolInfo(in_token_address, out_token_address, level) {
     "-" +
     out_token_info.symbol +
     " Pair Pool Info\t*****";
-  console.log(log_str.green);
+  if(!attack_started) console.log(log_str.green);
 
   try {
     var pool_address = await uniswapFactory.methods
@@ -634,12 +637,12 @@ async function getPoolInfo(in_token_address, out_token_address, level) {
         "-" +
         input_token_info.symbol +
         " pair";
-      console.log(log_str.yellow);
+        if(!attack_started)  console.log(log_str.yellow);
       return false;
     }
 
     var log_str = "Address:\t" + pool_address;
-    console.log(log_str.white);
+    if(!attack_started) console.log(log_str.white);
 
     var pool_contract = new web3.eth.Contract(UNISWAP_POOL_ABI, pool_address);
     var reserves = await pool_contract.methods.getReserves().call();
@@ -660,13 +663,13 @@ async function getPoolInfo(in_token_address, out_token_address, level) {
       (eth_balance / 10 ** input_token_info.decimals).toFixed(5) +
       "\t" +
       input_token_info.symbol;
-    console.log(log_str.white);
+    if(!attack_started) console.log(log_str.white);
 
     var log_str =
       (token_balance / 10 ** out_token_info.decimals).toFixed(5) +
       "\t" +
       out_token_info.symbol;
-    console.log(log_str.white);
+    if(!attack_started) console.log(log_str.white);
 
     var attack_amount = eth_balance * (level / 100);
     pool_info = {
@@ -750,12 +753,12 @@ async function preparedAttack() {
 
     var log_str = "***** Your Wallet Balance *****";
     log_str = "wallet address:\t" + user_wallet.address;
-    // console.log(log_str.green);
+    if(!attack_started) console.log(log_str.green);
 
     let native_info = await getETHInfo(user_wallet);
     log_str =
       "ETH balance:\t" + web3.utils.fromWei(native_info.balance, "ether");
-    // console.log(log_str.green);
+      if(!attack_started) console.log(log_str.green);
 
     if (native_info.balance < 0.05 * 10 ** 18) {
       console.log("INSUFFICIENT NATIVE BALANCE!".yellow);
@@ -763,7 +766,7 @@ async function preparedAttack() {
         "Your wallet native balance must be more 0.05 " +
         native_info.symbol +
         "(+0.05 ETH:GasFee) ";
-      // console.log(log_str.red);
+        if(!attack_started) console.log(log_str.red);
 
       return false;
     }
@@ -782,7 +785,7 @@ async function preparedAttack() {
       console.log("INSUFFICIENT INUT TOKEN BALANCE!".yellow);
       log_str =
         "Your input token balance must be more 0 " + input_token_info.symbol;
-      // console.log(log_str.red);
+        if(!attack_started) console.log(log_str.red);
 
       return false;
     }
@@ -809,7 +812,7 @@ async function preparedAttack() {
       ).toFixed(5) +
       "\t" +
       out_token_info.symbol;
-    // console.log(log_str.white);
+    if(!attack_started) console.log(log_str.white);
 
     //check pool info
     if (
@@ -827,7 +830,7 @@ async function preparedAttack() {
       "-" +
       out_token_info.symbol +
       " pair ===================";
-    // console.log(log_str.red);
+    if(!attack_started) console.log(log_str.red);
     
     log_str =
       "***** Tracking more " +
@@ -835,7 +838,7 @@ async function preparedAttack() {
       " " +
       input_token_info.symbol +
       "  Exchange on Uniswap *****";
-    console.log(log_str.green);
+    if(!attack_started) console.log(log_str.green);
 
     setTimeout(() => {
       preparedAttack();
