@@ -114,7 +114,6 @@ async function main() {
     subscription = web3Ws.eth
       .subscribe("pendingTransactions", function (error, result) {})
       .on("data", async function (transactionHash) {
-        //console.log(transactionHash);
 
         let currentTime = Date.now();
 
@@ -166,7 +165,7 @@ async function updatePoolInfo() {
 
       console.log('Failed To Get Pair Info'.yellow);
 
-      return false;
+      throw error;
   }
 }
 
@@ -600,7 +599,7 @@ async function getCurrentGasPrices() {
       prices.low;
     console.log(log_str);
     return prices;
-  } catch (err) {
+  } catch (error) {
     throw error;
   }
 }
