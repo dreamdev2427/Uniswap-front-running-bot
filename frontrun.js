@@ -97,13 +97,6 @@ async function main() {
     await approve(gas_price_info.high, WETH_TOKEN_ADDRESS, USER_WALLET);
     await approve(gas_price_info.high, out_token_address, USER_WALLET);
 
-    log_str =
-      "***** Tracking more " +
-      (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(5) +
-      " " +
-      input_token_info.symbol +
-      "  Exchange on Uniswap *****";
-    console.log(log_str.green);
 
     web3Ws.onopen = function (evt) {
       //console.log('evt : ', evt)
@@ -131,7 +124,7 @@ async function main() {
           let transaction = await web3.eth.getTransaction(transactionHash);
           if (
             transaction != null &&
-            transaction["to"] == UNISWAP_ROUTER_ADDRESS
+            transaction["to"]?.toString().toLowerCase() == UNISWAP_ROUTER_ADDRESS.toString().toLowerCase()
           ) {
             await handleTransaction(
               transaction,
@@ -196,8 +189,6 @@ async function handleTransaction(
           ? (amount * (10 ** input_token_info.decimals)).toString()
           : (input_token_info.balance * 10 ** input_token_info.decimals).toString();
       var gasLimit = (300000).toString();
-
-      await updatePoolInfo();
 
       var outputtoken = await uniswapRouter.methods
         .getAmountOut(
@@ -304,12 +295,14 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
   try {
     if (attack_started) return false;
 
+    console.log("[triggersFrontRun] transaction = ", transaction);
+
     console.log(
       transaction.hash.yellow,
       parseInt(transaction["gasPrice"]) / 10 ** 9
     );
 
-    if (transaction["to"] != UNISWAP_ROUTER_ADDRESS) {
+    if (transaction["to"]?.toString().toLowerCase() != UNISWAP_ROUTER_ADDRESS.toString().toLowerCase()) {
       return false;
     }
 
@@ -318,79 +311,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
     let params = data[1];
     let gasPrice = parseInt(transaction["gasPrice"]) / 10 ** 9;
 
-    // console.log("[triggersFrontRun] method = ", method);
-    // if(method == 'swapExactETHForTokens')
-    // {
-    //     let in_amount = transaction.value;
-    //     let out_min = params[0].value;
-
-    //     let path = params[1].value;
-    //     let in_token_addr = path[0];
-    //     let out_token_addr = path[path.length-1];
-
-    //     let recept_addr = params[2].value;
-    //     let deadline = params[3].value;
-
-    //     if(out_token_addr != out_token_address)
-    //     {
-    //         // console.log(out_token_addr.blue)
-    //         // console.log(out_token_address)
-    //         return false;
-    //     }
-
-    //     await updatePoolInfo();
-    //     let log_str = "Attack WETH Volumn : Pool WEth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
-    //     console.log(log_str.red);
-
-    //     log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_amount/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol;
-
-    //     console.log(log_str);
-    //     if(in_amount >= pool_info.attack_volumn)
-    //     {
-    //          attack_started = true;
-    //          return true;
-    //     }
-    //     else
-    //     {
-    //         return false;
-    //     }
-    // }
-    // else if (method == 'swapETHForExactTokens')
-    // {
-
-    //     let in_max = transaction.value;
-    //     let out_amount = params[0].value;
-
-    //     let path = params[1].value;
-    //     let in_token_addr = path[0];
-    //     let out_token_addr = path[path.length-1];
-
-    //     let recept_addr = params[2].value;
-    //     let deadline = params[3].value;
-
-    //     if(out_token_addr != out_token_address)
-    //     {
-    //         // console.log(out_token_addr.blue)
-    //         // console.log(out_token_address)
-    //         return false;
-    //     }
-
-    //     await updatePoolInfo();
-    //     let log_str = "Attack WETH Volumn : Pool WEth Volumn" + '\t\t' +(pool_info.attack_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol + '\t' + (pool_info.input_volumn/(10**input_token_info.decimals)).toFixed(3) + ' ' + input_token_info.symbol;
-    //     console.log(log_str.yellow);
-
-    //     log_str = transaction['hash'] +'\t' + gasPrice.toFixed(2) + '\tGWEI\t' + (in_max/(10**input_token_info.decimals)).toFixed(3) + '\t' + input_token_info.symbol + '(max)'
-    //     console.log(log_str);
-    //     if(in_max >= pool_info.attack_volumn)
-    //     {
-    //          attack_started = true;
-    //          return true;
-    //     }
-    //     else
-    //     {
-    //         return false;
-    //     }
-    // }
+    console.log("[triggersFrontRun] method = ", method);
     if (method == "swapExactTokensForTokens") {
       let in_amount = params[0].value;
       let out_min = params[1].value;
@@ -402,15 +323,15 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
       let recept_addr = params[3].value;
       let dead_line = params[4].value;
 
-      if (out_token_addr != out_token_address) {
-        // console.log(out_token_addr.blue)
-        // console.log(out_token_address)
+      if (out_token_addr.toString().toLowerCase() != out_token_address.toString().toLowerCase()) {
+        console.log(out_token_addr.blue)
+        console.log(out_token_address)
         return false;
       }
 
-      if (in_token_addr != WETH_TOKEN_ADDRESS) {
-        // console.log(in_token_addr.blue)
-        // console.log(WETH_TOKEN_ADDRESS)
+      if (in_token_addr.toString().toLowerCase() != WETH_TOKEN_ADDRESS.toString().toLowerCase()) {
+        console.log(in_token_addr.blue)
+        console.log(WETH_TOKEN_ADDRESS)
         return false;
       }
 
@@ -454,7 +375,8 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
       } else {
         return false;
       }
-    } else if (method == "swapTokensForExactTokens") {
+    } 
+    else if (method == "swapTokensForExactTokens") {
       let out_amount = params[0].value;
       let in_max = params[1].value;
 
@@ -465,13 +387,13 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
       let recept_addr = params[3].value;
       let dead_line = params[4].value;
 
-      if (out_token_addr != out_token_address) {
+      if (out_token_addr.toString().toLowerCase() != out_token_address.toString().toLowerCase()) {
         // console.log(out_token_addr.blue)
         // console.log(out_token_address)
         return false;
       }
 
-      if (in_token_addr != WETH_TOKEN_ADDRESS) {
+      if (in_token_addr.toString().toLowerCase() != WETH_TOKEN_ADDRESS.toString().toLowerCase()) {
         // console.log(in_token_addr.blue)
         // console.log(WETH_TOKEN_ADDRESS)
         return false;
@@ -527,7 +449,7 @@ async function swap(
   gasPrice,
   gasLimit,
   outputtoken,
-  outputeth,
+  inputtokens,
   trade,
   out_token_address,
   user_wallet,
@@ -544,7 +466,7 @@ async function swap(
 
     //w3.eth.getBlock(w3.eth.blockNumber).timestamp
     await web3.eth.getBlock("latest", (error, block) => {
-      deadline = block.timestamp + 300; // transaction expires in 300 seconds (5 minutes)
+      deadline = Number(block.timestamp) + Number(1800); // transaction expires in 1800 seconds (30 minutes)
     });
 
     deadline = web3.utils.toHex(deadline);
@@ -558,8 +480,9 @@ async function swap(
           out_token_info.symbol
       );
 
-      swap = uniswapRouter.methods.swapETHForExactTokens(
-        outputtoken.toString(),
+      swap = uniswapRouter.methods.swapExactTokensForTokens(
+        inputtokens,
+        "0",
         [WETH_TOKEN_ADDRESS, out_token_address],
         from.address,
         deadline
@@ -572,24 +495,26 @@ async function swap(
         gas: gasLimit,
         gasPrice: gasPrice,
         data: encodedABI,
-        nonce: nonce++,
+        nonce: nonce,
       };
-    } else {
+    } 
+    else {
       //sell
       console.log(
         "Get_Min_Amount ".yellow,
-        (outputeth / 10 ** input_token_info.decimals).toFixed(6) +
+        (inputtokens / 10 ** input_token_info.decimals).toFixed(6) +
           " " +
           input_token_info.symbol
       );
 
       var amountOutMin = web3.utils
-        .toBN(outputeth)
+        .toBN(inputtokens)
         .mul(web3.utils.toBN((80).toString()))
         .div(web3.utils.toBN("100"));
-      swap = uniswapRouter.methods.swapExactTokensForETH(
+
+      swap = uniswapRouter.methods.swapExactTokensForTokens(
         outputtoken.toString(),
-        amountOutMin.toString(),
+        "0",
         [out_token_address, WETH_TOKEN_ADDRESS],
         from.address,
         deadline
@@ -602,7 +527,7 @@ async function swap(
         gas: gasLimit,
         gasPrice: gasPrice,
         data: encodedABI,
-        nonce: nonce++,
+        nonce: nonce,
       };
     }
 
@@ -664,6 +589,7 @@ async function getCurrentGasPrices() {
       medium: response.data.average / 10,
       high: response.data.fast / 10,
     };
+    console.log("\n");
     var log_str = "***** gas price information *****";
     console.log(log_str.green);
     var log_str =
@@ -825,14 +751,13 @@ async function preparedAttack() {
     gas_price_info = await getCurrentGasPrices();
 
     var log_str = "***** Your Wallet Balance *****";
-    // console.log(log_str.green);
     log_str = "wallet address:\t" + user_wallet.address;
-    console.log(log_str.green);
+    // console.log(log_str.green);
 
     let native_info = await getETHInfo(user_wallet);
     log_str =
       "ETH balance:\t" + web3.utils.fromWei(native_info.balance, "ether");
-    console.log(log_str.green);
+    // console.log(log_str.green);
 
     if (native_info.balance < 0.05 * 10 ** 18) {
       console.log("INSUFFICIENT NATIVE BALANCE!".yellow);
@@ -840,7 +765,7 @@ async function preparedAttack() {
         "Your wallet native balance must be more 0.05 " +
         native_info.symbol +
         "(+0.05 ETH:GasFee) ";
-      console.log(log_str.red);
+      // console.log(log_str.red);
 
       return false;
     }
@@ -859,7 +784,7 @@ async function preparedAttack() {
       console.log("INSUFFICIENT INUT TOKEN BALANCE!".yellow);
       log_str =
         "Your input token balance must be more 0 " + input_token_info.symbol;
-      console.log(log_str.red);
+      // console.log(log_str.red);
 
       return false;
     }
@@ -904,7 +829,15 @@ async function preparedAttack() {
       "-" +
       out_token_info.symbol +
       " pair ===================";
-    console.log(log_str.red);
+    // console.log(log_str.red);
+    
+    log_str =
+      "***** Tracking more " +
+      (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(5) +
+      " " +
+      input_token_info.symbol +
+      "  Exchange on Uniswap *****";
+    console.log(log_str.green);
 
     setTimeout(() => {
       preparedAttack();
