@@ -590,9 +590,9 @@ async function getCurrentGasPrices() {
       medium: response.data.average / 10,
       high: response.data.fast / 10,
     };
-    console.log("\n");
+    if(!attack_started) console.log("\n");
     var log_str = "***** gas price information *****";
-    console.log(log_str.green);
+    if(!attack_started) console.log(log_str.green);
     var log_str =
       "High: " +
       prices.high +
@@ -600,7 +600,7 @@ async function getCurrentGasPrices() {
       prices.medium +
       "        low: " +
       prices.low;
-    console.log(log_str);
+    if(!attack_started) console.log(log_str);
     return prices;
   } catch (error) {
     throw error;
