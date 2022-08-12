@@ -53,7 +53,6 @@ async function createWeb3() {
   try 
   {
     web3 = new Web3(new Web3.providers.HttpProvider(HTTP_PROVIDER_LINK));
-    web3.eth.getAccounts(console.log);
     web3Ws = new Web3(
       new Web3.providers.WebsocketProvider(WEBSOCKET_PROVIDER_LINK)
     );
@@ -212,7 +211,7 @@ async function handleTransaction(
       );
 
       console.log(
-        "wait until the honest transaction is done...",
+        "Wait until the large volumn transaction is done...",
         transaction["hash"]
       );
 
