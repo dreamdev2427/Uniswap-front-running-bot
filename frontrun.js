@@ -50,7 +50,8 @@ var succeed = false;
 var subscription;
 
 async function createWeb3() {
-  try {
+  try 
+  {
     web3 = new Web3(new Web3.providers.HttpProvider(HTTP_PROVIDER_LINK));
     web3.eth.getAccounts(console.log);
     web3Ws = new Web3(
@@ -67,7 +68,8 @@ async function createWeb3() {
     abiDecoder.addABI(UNISWAP_ROUTER_ABI);
 
     return true;
-  } catch (error) {
+  } 
+  catch (error) {
     console.log("create web3 : ", error);
     throw error;
   }
@@ -97,7 +99,6 @@ async function main() {
     await approve(gas_price_info.high, WETH_TOKEN_ADDRESS, USER_WALLET);
     await approve(gas_price_info.high, out_token_address, USER_WALLET);
 
-
     web3Ws.onopen = function (evt) {
       //console.log('evt : ', evt)
       web3Ws.send(
@@ -118,7 +119,8 @@ async function main() {
 
         let currentTime = Date.now();
 
-        if (currentTime - oldTime > UPDATE_TIME_INTERVAL) {
+        if (currentTime - oldTime > UPDATE_TIME_INTERVAL) 
+        {
           // console.log(oldTime, currentTime);
           oldTime = Date.now();
           let transaction = await web3.eth.getTransaction(transactionHash);
@@ -295,8 +297,6 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
   try {
     if (attack_started) return false;
 
-    console.log("[triggersFrontRun] transaction = ", transaction);
-
     console.log(
       transaction.hash.yellow,
       parseInt(transaction["gasPrice"]) / 10 ** 9
@@ -311,7 +311,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
     let params = data[1];
     let gasPrice = parseInt(transaction["gasPrice"]) / 10 ** 9;
 
-    console.log("[triggersFrontRun] method = ", method);
+    // console.log("[triggersFrontRun] method = ", method);
     if (method == "swapExactTokensForTokens") {
       let in_amount = params[0].value;
       let out_min = params[1].value;
@@ -324,20 +324,20 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
       let dead_line = params[4].value;
 
       if (out_token_addr.toString().toLowerCase() != out_token_address.toString().toLowerCase()) {
-        console.log(out_token_addr.blue)
-        console.log(out_token_address)
+        // console.log(out_token_addr.blue)
+        // console.log(out_token_address)
         return false;
       }
 
       if (in_token_addr.toString().toLowerCase() != WETH_TOKEN_ADDRESS.toString().toLowerCase()) {
-        console.log(in_token_addr.blue)
-        console.log(WETH_TOKEN_ADDRESS)
+        // console.log(in_token_addr.blue)
+        // console.log(WETH_TOKEN_ADDRESS)
         return false;
       }
 
       await updatePoolInfo();
       let log_str =
-        "Attack WETH Volumn : Pool WEth Volumn" +
+        "Attack "+input_token_info.symbol+" Volumn : Pool "+input_token_info.symbol+" Volumn" +
         "\t\t" +
         (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(3) +
         " " +
@@ -401,7 +401,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
 
       await updatePoolInfo();
       let log_str =
-        "Attack WETH Volumn : Pool WEth Volumn" +
+      "Attack "+input_token_info.symbol+" Volumn : Pool "+input_token_info.symbol+" Volumn" +
         "\t\t" +
         (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(3) +
         " " +
