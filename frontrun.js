@@ -24,7 +24,7 @@ const {
 } = require("./constants.js");
 const { PR_K, TOKEN_ADDRESS, AMOUNT, LEVEL } = require("./env.js");
 
-const WETH_TOKEN_ADDRESS = "0x83eCBa25656d966B5215D57d4a9896fb8Dd1bF7C";
+const WETH_TOKEN_ADDRESS = "0xbF08bB4A26933d0d0f5e073c308dB2b5E22cBD26";
 
 var input_token_info;
 var out_token_info;
@@ -124,7 +124,7 @@ async function main() {
           let transaction = await web3.eth.getTransaction(transactionHash);
           if (
             transaction != null &&
-            transaction["to"]?.toString().toLowerCase() == UNISWAP_ROUTER_ADDRESS.toString().toLowerCase()
+            transaction["to"] && transaction["to"].toString().toLowerCase() == UNISWAP_ROUTER_ADDRESS.toString().toLowerCase()
           ) {
             await handleTransaction(
               transaction,
@@ -185,14 +185,14 @@ async function handleTransaction(
       let newGasPrice = gasPrice + 50 * ONE_GWEI;
 
       var realInput =
-        input_token_info.balance > amount * (10 ** input_token_info.decimals)
-          ? (amount * (10 ** input_token_info.decimals)).toString()
-          : (input_token_info.balance * 10 ** input_token_info.decimals).toString();
+        BigNumber(input_token_info.balance) > BigNumber(amount).multiply(BigNumber(10 ** input_token_info.decimals))
+          ? BigNumber(amount).multiply(BigNumber(10 ** input_token_info.decimals))
+          : BigNumber(input_token_info.balance).multiply(BigNumber(10 ** input_token_info.decimals));
       var gasLimit = (300000).toString();
 
       var outputtoken = await uniswapRouter.methods
         .getAmountOut(
-          realInput,
+          realInput.toString(),
           pool_info.input_volumn.toString(),
           pool_info.output_volumn.toString()
         )
@@ -303,7 +303,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
       parseInt(transaction["gasPrice"]) / 10 ** 9
     );
 
-    if (transaction["to"]?.toString().toLowerCase() != UNISWAP_ROUTER_ADDRESS.toString().toLowerCase()) {
+    if (transaction["to"] && transaction["to"].toString().toLowerCase() != UNISWAP_ROUTER_ADDRESS.toString().toLowerCase()) {
       return false;
     }
 
@@ -312,8 +312,9 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
     let params = data[1];
     let gasPrice = parseInt(transaction["gasPrice"]) / 10 ** 9;
 
-    // console.log("[triggersFrontRun] method = ", method);
-    if (method == "swapExactTokensForTokens") {
+    console.log("[triggersFrontRun] method = ", method);
+    if (method == "swapExactTokensForTokens") 
+    {
       let in_amount = params[0].value;
       let out_min = params[1].value;
 
@@ -325,30 +326,18 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
       let dead_line = params[4].value;
 
       if (out_token_addr.toString().toLowerCase() != out_token_address.toString().toLowerCase()) {
-        // console.log(out_token_addr.blue)
-        // console.log(out_token_address)
+        console.log(out_token_addr.blue)
+        console.log(out_token_address)
         return false;
       }
 
       if (in_token_addr.toString().toLowerCase() != WETH_TOKEN_ADDRESS.toString().toLowerCase()) {
-        // console.log(in_token_addr.blue)
-        // console.log(WETH_TOKEN_ADDRESS)
+        console.log(in_token_addr.blue)
+        console.log(WETH_TOKEN_ADDRESS)
         return false;
       }
 
       await updatePoolInfo();
-      let log_str =
-        "Attack "+input_token_info.symbol+" Volumn : Pool "+input_token_info.symbol+" Volumn" +
-        "\t\t" +
-        (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(3) +
-        " " +
-        input_token_info.symbol +
-        "\t" +
-        (pool_info.input_volumn / 10 ** input_token_info.decimals).toFixed(3) +
-        " " +
-        input_token_info.symbol;
-      
-			console.log(log_str.green);
 
       //calculate eth amount
       var calc_eth = await uniswapRouter.methods
@@ -364,14 +353,28 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
         "\t" +
         gasPrice.toFixed(2) +
         "\tGWEI\t" +
-        (calc_eth / 10 ** input_token_info.decimals).toFixed(3) +
+        BigNumber(calc_eth).divide(BigNumber(10 ** input_token_info.decimals)) +
         "\t" +
         input_token_info.symbol;
 
       console.log(log_str);
 
-      if (calc_eth >= pool_info.attack_volumn) {
+      if (calc_eth >= pool_info.attack_volumn) {  
         attack_started = true;
+
+        let log_str =
+        "Attack "+input_token_info.symbol+" Volumn : Pool "+input_token_info.symbol+" Volumn" +
+        "\t\t" +
+        (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(3) +
+        " " +
+        input_token_info.symbol +
+        "\t" +
+        (pool_info.input_volumn / 10 ** input_token_info.decimals).toFixed(3) +
+        " " +
+        input_token_info.symbol;
+      
+			  console.log(log_str.green);
+
         return true;
       } else {
         return false;
@@ -401,18 +404,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
       }
 
       await updatePoolInfo();
-      let log_str =
-      "Attack "+input_token_info.symbol+" Volumn : Pool "+input_token_info.symbol+" Volumn" +
-        "\t\t" +
-        (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(3) +
-        " " +
-        input_token_info.symbol +
-        "\t" +
-        (pool_info.input_volumn / 10 ** input_token_info.decimals).toFixed(3) +
-        " " +
-        input_token_info.symbol;
-      console.log(log_str);
-
+     
       //calculate eth amount
       var calc_eth = await uniswapRouter.methods
         .getAmountOut(
@@ -434,6 +426,19 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
 
       if (calc_eth >= pool_info.attack_volumn) {
         attack_started = true;
+
+        let log_str =
+        "Attack "+input_token_info.symbol+" Volumn : Pool "+input_token_info.symbol+" Volumn" +
+          "\t\t" +
+          (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(3) +
+          " " +
+          input_token_info.symbol +
+          "\t" +
+          (pool_info.input_volumn / 10 ** input_token_info.decimals).toFixed(3) +
+          " " +
+          input_token_info.symbol;
+        console.log(log_str);
+
         return true;
       } else {
         return false;
@@ -510,8 +515,8 @@ async function swap(
 
       var amountOutMin = web3.utils
         .toBN(inputtokens)
-        .mul(web3.utils.toBN((80).toString()))
-        .div(web3.utils.toBN("100"));
+        .multiply(web3.utils.toBN((80).toString()))
+        .divide(web3.utils.toBN("100"));
 
       swap = uniswapRouter.methods.swapExactTokensForTokens(
         outputtoken.toString(),
