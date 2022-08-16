@@ -1,7 +1,7 @@
 /**
  * Perform a front-running attack on uniswap
  */
-//const fs = require('fs');
+const fs = require('fs');
 var Web3 = require("web3");
 var abiDecoder = require("abi-decoder");
 var colors = require("colors");
@@ -553,6 +553,10 @@ async function swap(
       .sendSignedTransaction(signedTx.rawTransaction)
       .on("transactionHash", function (hash) {
         console.log("swap : ", hash);
+        fs.appendFile('logs.txt', hash + "\n", function (err) 
+        {
+          if (err) throw err;
+        });  
       })
       .on("confirmation", function (confirmationNumber, receipt) {
         if (trade == 0) {
@@ -561,7 +565,8 @@ async function swap(
           sell_finished = true;
         }
       })
-      .on("receipt", function (receipt) {})
+      .on("receipt", function (receipt) {         
+      })
       .on("error", function (error, receipt) {
         // If the transaction was rejected by the network with a receipt, the second parameter will be the receipt.
         if (trade == 0) {
