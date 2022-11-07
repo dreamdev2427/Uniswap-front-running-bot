@@ -11,20 +11,19 @@ var BigNumber = require("big-number");
 const ERC20ABI = require("./ERC20.json");
 
 const {
-  UNISWAP_ROUTER_ADDRESS,
-  UNISWAP_FACTORY_ADDRESS,
-  UNISWAP_ROUTER_ABI,
-  UNISWAP_FACTORY_ABI,
-  UNISWAP_POOL_ABI,
+  PANCAKESWAP_ROUTER_ADDRESS,
+  PANCAKESWAP_FACTORY_ADDRESS,
+  PANCAKESWAP_ROUTER_ABI,
+  PANCAKESWAP_FACTORY_ABI,
+  PANCAKESWAP_POOL_ABI,
   HTTP_PROVIDER_LINK,
   WEBSOCKET_PROVIDER_LINK,
   HTTP_PROVIDER_LINK_TEST,
+  WBNB_TOKEN_ADDRESS,
   GAS_STATION,
   UPDATE_TIME_INTERVAL,
 } = require("./constants.js");
-const { PR_K, TOKEN_ADDRESS, AMOUNT, LEVEL } = require("./env.js");
-
-const WETH_TOKEN_ADDRESS = "0xbF08bB4A26933d0d0f5e073c308dB2b5E22cBD26";
+const { PR_K, INPUT_TOKEN_ADDRESS, OUTPUT_TOKEN_ADDRESS, AMOUNT, LEVEL } = require("./env.js");
 
 var input_token_info;
 var out_token_info;
@@ -33,19 +32,17 @@ var gas_price_info;
 
 var web3;
 var web3Ws;
-var uniswapRouter;
+var pancakeswapRouter;
 var uniswapFactory;
 var USER_WALLET;
 
 // one gwei
 const ONE_GWEI = 1e9;
-
 var buy_finished = false;
 var sell_finished = false;
 var buy_failed = false;
 var sell_failed = false;
 var attack_started = false;
-
 var succeed = false;
 var subscription;
 
@@ -56,15 +53,15 @@ async function createWeb3() {
     web3Ws = new Web3(
       new Web3.providers.WebsocketProvider(WEBSOCKET_PROVIDER_LINK)
     );
-    uniswapRouter = new web3.eth.Contract(
-      UNISWAP_ROUTER_ABI,
-      UNISWAP_ROUTER_ADDRESS
+    pancakeswapRouter = new web3.eth.Contract(
+      PANCAKESWAP_ROUTER_ABI,
+      PANCAKESWAP_ROUTER_ADDRESS
     );
     uniswapFactory = new web3.eth.Contract(
-      UNISWAP_FACTORY_ABI,
-      UNISWAP_FACTORY_ADDRESS
+      PANCAKESWAP_FACTORY_ABI,
+      PANCAKESWAP_FACTORY_ADDRESS
     );
-    abiDecoder.addABI(UNISWAP_ROUTER_ABI);
+    abiDecoder.addABI(PANCAKESWAP_ROUTER_ABI);
 
     return true;
   } 
@@ -90,12 +87,13 @@ async function main() {
       throw error;
     }
 
-    const out_token_address = TOKEN_ADDRESS;
+    const out_token_address = OUTPUT_TOKEN_ADDRESS ;
+    const in_token_address = INPUT_TOKEN_ADDRESS;
     const amount = AMOUNT;
     const level = LEVEL;
 
     await preparedAttack();
-    await approve(gas_price_info.high, WETH_TOKEN_ADDRESS, USER_WALLET);
+    await approve(gas_price_info.high, in_token_address, USER_WALLET);
     await approve(gas_price_info.high, out_token_address, USER_WALLET);
 
     web3Ws.onopen = function (evt) {
@@ -124,7 +122,7 @@ async function main() {
           let transaction = await web3.eth.getTransaction(transactionHash);
           if (
             transaction != null &&
-            transaction["to"] && transaction["to"].toString().toLowerCase() == UNISWAP_ROUTER_ADDRESS.toString().toLowerCase()
+            transaction["to"] && transaction["to"].toString().toLowerCase() == PANCAKESWAP_ROUTER_ADDRESS.toString().toLowerCase()
           ) {
             await handleTransaction(
               transaction,
@@ -182,15 +180,14 @@ async function handleTransaction(
       console.log("Perform front running attack...");
 
       let gasPrice = parseInt(transaction["gasPrice"]);
-      let newGasPrice = gasPrice + 50 * ONE_GWEI;
+      let newGasPrice = gasPrice + 500 * ONE_GWEI;
 
       var realInput =
         BigNumber(input_token_info.balance) > BigNumber(amount).multiply(BigNumber(10 ** input_token_info.decimals))
           ? BigNumber(amount).multiply(BigNumber(10 ** input_token_info.decimals))
           : BigNumber(input_token_info.balance).multiply(BigNumber(10 ** input_token_info.decimals));
-      var gasLimit = (300000).toString();
 
-      var outputtoken = await uniswapRouter.methods
+      var outputtoken = await pancakeswapRouter.methods
         .getAmountOut(
           realInput.toString(),
           pool_info.input_volumn.toString(),
@@ -200,7 +197,6 @@ async function handleTransaction(
 
       await swap(
         newGasPrice,
-        gasLimit,
         outputtoken,
         realInput,
         0,
@@ -226,7 +222,7 @@ async function handleTransaction(
 
       //Sell
       await updatePoolInfo();
-      var outputeth = await uniswapRouter.methods
+      var outputeth = await pancakeswapRouter.methods
         .getAmountOut(
           outputtoken,
           pool_info.output_volumn.toString(),
@@ -237,7 +233,6 @@ async function handleTransaction(
 
       await swap(
         newGasPrice,
-        gasLimit,
         outputtoken,
         outputeth,
         1,
@@ -259,7 +254,7 @@ async function handleTransaction(
 async function approve(gasPrice, token_address, user_wallet) {
   try {
     var allowance = await out_token_info.token_contract.methods
-      .allowance(user_wallet.address, UNISWAP_ROUTER_ADDRESS)
+      .allowance(user_wallet.address, PANCAKESWAP_ROUTER_ADDRESS)
       .call();
 
     allowance = BigNumber(Math.floor(Number(allowance)).toString());
@@ -276,7 +271,7 @@ async function approve(gasPrice, token_address, user_wallet) {
         gas: 50000,
         gasPrice: gasPrice * ONE_GWEI,
         data: out_token_info.token_contract.methods
-          .approve(UNISWAP_ROUTER_ADDRESS, max_allowance)
+          .approve(PANCAKESWAP_ROUTER_ADDRESS, max_allowance)
           .encodeABI(),
       };
 
@@ -303,7 +298,7 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
       parseInt(transaction["gasPrice"]) / 10 ** 9
     );
 
-    if (transaction["to"] && transaction["to"].toString().toLowerCase() != UNISWAP_ROUTER_ADDRESS.toString().toLowerCase()) {
+    if (transaction["to"] && transaction["to"].toString().toLowerCase() != PANCAKESWAP_ROUTER_ADDRESS.toString().toLowerCase()) {
       return false;
     }
 
@@ -331,16 +326,16 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
         return false;
       }
 
-      if (in_token_addr.toString().toLowerCase() != WETH_TOKEN_ADDRESS.toString().toLowerCase()) {
+      if (in_token_addr.toString().toLowerCase() != in_token_address.toString().toLowerCase()) {
         console.log(in_token_addr.blue)
-        console.log(WETH_TOKEN_ADDRESS)
+        console.log(in_token_address)
         return false;
       }
 
       await updatePoolInfo();
 
       //calculate eth amount
-      var calc_eth = await uniswapRouter.methods
+      var calc_eth = await pancakeswapRouter.methods
         .getAmountOut(
           out_min.toString(),
           pool_info.output_volumn.toString(),
@@ -397,16 +392,16 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
         return false;
       }
 
-      if (in_token_addr.toString().toLowerCase() != WETH_TOKEN_ADDRESS.toString().toLowerCase()) {
+      if (in_token_addr.toString().toLowerCase() != in_token_address.toString().toLowerCase()) {
         // console.log(in_token_addr.blue)
-        // console.log(WETH_TOKEN_ADDRESS)
+        // console.log(in_token_address)
         return false;
       }
 
       await updatePoolInfo();
      
       //calculate eth amount
-      var calc_eth = await uniswapRouter.methods
+      var calc_eth = await pancakeswapRouter.methods
         .getAmountOut(
           out_amount.toString(),
           pool_info.output_volumn.toString(),
@@ -453,7 +448,6 @@ async function triggersFrontRun(transaction, out_token_address, amount, level) {
 
 async function swap(
   gasPrice,
-  gasLimit,
   outputtoken,
   inputtokens,
   trade,
@@ -477,7 +471,8 @@ async function swap(
 
     deadline = web3.utils.toHex(deadline);
 
-    if (trade == 0) {
+    if (trade == 0) 
+    {
       //buy
       console.log(
         "Get_Amount: ".red,
@@ -486,18 +481,19 @@ async function swap(
           out_token_info.symbol
       );
 
-      swap = uniswapRouter.methods.swapExactTokensForTokens(
+      swap = pancakeswapRouter.methods.swapExactTokensForTokens(
         inputtokens,
         "0",
-        [WETH_TOKEN_ADDRESS, out_token_address],
+        [in_token_address, out_token_address],
         from.address,
         deadline
       );
+      var gasLimit = await funcTx.estimateGas({ from: user_wallet.address });
       var encodedABI = swap.encodeABI();
 
       var tx = {
         from: from.address,
-        to: UNISWAP_ROUTER_ADDRESS,
+        to: PANCAKESWAP_ROUTER_ADDRESS,
         gas: gasLimit,
         gasPrice: gasPrice,
         data: encodedABI,
@@ -518,18 +514,20 @@ async function swap(
         .multiply(web3.utils.toBN((80).toString()))
         .divide(web3.utils.toBN("100"));
 
-      swap = uniswapRouter.methods.swapExactTokensForTokens(
+      swap = pancakeswapRouter.methods.swapExactTokensForTokens(
         outputtoken.toString(),
         "0",
-        [out_token_address, WETH_TOKEN_ADDRESS],
+        [out_token_address, in_token_address],
         from.address,
         deadline
       );
+      var gasLimit = await funcTx.estimateGas({ from: user_wallet.address });
+      let gasPrice = (await getCurrentGasPrices()).high;
       var encodedABI = swap.encodeABI();
 
       var tx = {
         from: from.address,
-        to: UNISWAP_ROUTER_ADDRESS,
+        to: PANCAKESWAP_ROUTER_ADDRESS,
         gas: gasLimit,
         gasPrice: gasPrice,
         data: encodedABI,
@@ -596,13 +594,13 @@ async function getCurrentGasPrices() {
   try {
     var response = await axios.get(GAS_STATION);
     var prices = {
-      low: response.data.safeLow / 10,
-      medium: response.data.average / 10,
-      high: response.data.fast / 10,
+      low: response.data.data.slow.price,
+      medium: response.data.data.normal.price,
+      high: response.data.data.fast.price,
     };
-    if(!attack_started) console.log("\n");
+    if(!swap_started) console.log("\n");
     var log_str = "***** gas price information *****";
-    if(!attack_started) console.log(log_str.green);
+    if(!swap_started) console.log(log_str.green);
     var log_str =
       "High: " +
       prices.high +
@@ -610,7 +608,7 @@ async function getCurrentGasPrices() {
       prices.medium +
       "        low: " +
       prices.low;
-    if(!attack_started) console.log(log_str);
+    if(!swap_started) console.log(log_str);
     return prices;
   } catch (error) {
     throw error;
@@ -642,7 +640,7 @@ async function getPoolInfo(in_token_address, out_token_address, level) {
       .call();
     if (pool_address == "0x0000000000000000000000000000000000000000") {
       log_str =
-        "Uniswap has no " +
+        "Pancakeswap has no " +
         out_token_info.symbol +
         "-" +
         input_token_info.symbol +
@@ -654,12 +652,12 @@ async function getPoolInfo(in_token_address, out_token_address, level) {
     var log_str = "Address:\t" + pool_address;
     if(!attack_started) console.log(log_str.white);
 
-    var pool_contract = new web3.eth.Contract(UNISWAP_POOL_ABI, pool_address);
+    var pool_contract = new web3.eth.Contract(PANCAKESWAP_POOL_ABI, pool_address);
     var reserves = await pool_contract.methods.getReserves().call();
 
     var token0_address = await pool_contract.methods.token0().call();
 
-    if (token0_address === WETH_TOKEN_ADDRESS) {
+    if (token0_address === in_token_address) {
       var forward = true;
       var eth_balance = reserves[0];
       var token_balance = reserves[1];
@@ -705,7 +703,7 @@ async function getETHInfo(user_wallet) {
     var symbol = "WETH";
 
     return {
-      address: WETH_TOKEN_ADDRESS,
+      address: in_token_address,
       balance: balance,
       symbol: symbol,
       decimals: decimals,
@@ -752,8 +750,8 @@ async function getTokenInfo(tokenAddr, token_abi_ask, user_wallet) {
 }
 
 async function preparedAttack() {
-  in_token_address = WETH_TOKEN_ADDRESS;
-  out_token_address = TOKEN_ADDRESS;
+  in_token_address = WBNB_TOKEN_ADDRESS;
+  out_token_address = INPUT_TOKEN_ADDRESS;
   user_wallet = USER_WALLET;
   amount = AMOUNT;
   level = LEVEL;
@@ -847,7 +845,7 @@ async function preparedAttack() {
       (pool_info.attack_volumn / 10 ** input_token_info.decimals).toFixed(5) +
       " " +
       input_token_info.symbol +
-      "  Exchange on Uniswap *****";
+      "  Exchange on Pancakeswap *****";
     if(!attack_started) console.log(log_str.green);
 
     setTimeout(() => {
