@@ -117,7 +117,6 @@ async function main() {
 
         if (currentTime - oldTime > UPDATE_TIME_INTERVAL) 
         {
-          // console.log(oldTime, currentTime);
           oldTime = Date.now();
           let transaction = await web3.eth.getTransaction(transactionHash);
           if (
