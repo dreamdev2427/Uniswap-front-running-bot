@@ -269,7 +269,7 @@ async function approve(gasPrice, token_address, user_wallet) {
         from: user_wallet.address,
         to: token_address,
         gas: 50000,
-        gasPrice: gasPrice * ONE_GWEI,
+        gasPrice: gasPrice,
         data: out_token_info.token_contract.methods
           .approve(PANCAKESWAP_ROUTER_ADDRESS, max_allowance)
           .encodeABI(),
@@ -716,17 +716,8 @@ async function getETHInfo(user_wallet) {
 
 async function getTokenInfo(tokenAddr, token_abi_ask, user_wallet) {
   try {
-    let chooseDefaultABI = false;
-
-    //get token abi
-    var response = await axios.get(token_abi_ask);
-    if (response.data.status == 0) {
-      chooseDefaultABI = true;
-    }
-
-    var token_abi =
-      chooseDefaultABI === true ? ERC20ABI : JSON.parse(response.data.result);
-
+    var token_abi = ERC20ABI;
+ 
     //get token info
     var token_contract = new web3.eth.Contract(token_abi, tokenAddr);
 
@@ -757,7 +748,17 @@ async function preparedAttack() {
   level = LEVEL;
 
   try {
-    gas_price_info = await getCurrentGasPrices();
+    try{
+      gas_price_info = await getCurrentGasPrices();
+    }catch (err)
+    {
+      // console.log("Fetching gas price : ", err);
+      gas_price_info = {
+        high: 5200000000,
+        medium: 5100000000,
+        low: 5000000000
+      }
+    }
 
     var log_str = "***** Your Wallet Balance *****";
     log_str = "wallet address:\t" + user_wallet.address;
