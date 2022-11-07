@@ -750,8 +750,8 @@ async function getTokenInfo(tokenAddr, token_abi_ask, user_wallet) {
 }
 
 async function preparedAttack() {
-  in_token_address = WBNB_TOKEN_ADDRESS;
-  out_token_address = INPUT_TOKEN_ADDRESS;
+  in_token_address = INPUT_TOKEN_ADDRESS;
+  out_token_address = OUTPUT_TOKEN_ADDRESS;
   user_wallet = USER_WALLET;
   amount = AMOUNT;
   level = LEVEL;
@@ -765,15 +765,15 @@ async function preparedAttack() {
 
     let native_info = await getETHInfo(user_wallet);
     log_str =
-      "ETH balance:\t" + web3.utils.fromWei(native_info.balance, "ether");
+      "BNB balance:\t" + web3.utils.fromWei(native_info.balance, "ether");
       if(!attack_started) console.log(log_str.green);
 
-    if (native_info.balance < 0.05 * 10 ** 18) {
+    if (native_info.balance < 0.03 * 10 ** 18) {
       console.log("INSUFFICIENT NATIVE BALANCE!".yellow);
       log_str =
         "Your wallet native balance must be more 0.05 " +
         native_info.symbol +
-        "(+0.05 ETH:GasFee) ";
+        "(+0.03 BNB:GasFee) ";
         if(!attack_started) console.log(log_str.red);
 
       return false;
